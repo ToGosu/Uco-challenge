@@ -1,5 +1,9 @@
 package co.edu.uco.ucochallenge.city.getcities.application.interactor.usecase;
 
-public class GetCitiesUseCase {
+import java.util.List;
 
+import co.edu.uco.ucochallenge.application.interactor.usecase.UseCase;
+import co.edu.uco.ucochallenge.city.getcities.application.interactor.dto.CityOutputDTO;
+
+public interface GetCitiesUseCase extends UseCase<Void, List<CityOutputDTO>> {
 }
