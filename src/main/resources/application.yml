@@ -1,3 +1,4 @@
+
 spring:
   application:
     name: uco-challenge
@@ -8,7 +9,6 @@ spring:
     username: ${database.username:postgres}
     password: ${database.password:postgres}
     driver-class-name: org.postgresql.Driver
-  
   jpa:
     hibernate:
       ddl-auto: update
@@ -38,8 +38,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${auth0.issuer-uri:https://dev-l7bs34cafn0six34.us.auth0.com/}
-          audience: ${auth0.audience:https://ucochallenge-api/}
+          issuer-uri: https://dev-l7bs34cafn0six34.us.auth0.com/
+          audience: https://ucochallenge-api/
 
 # NotificationAPI (desde Vault)
 notificationapi:

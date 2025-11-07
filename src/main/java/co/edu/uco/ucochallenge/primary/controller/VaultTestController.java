@@ -4,7 +4,6 @@ import co.edu.uco.ucochallenge.config.DatabaseProperties;
 import co.edu.uco.ucochallenge.config.JwtProperties;
 import co.edu.uco.ucochallenge.config.SmtpProperties;
 import co.edu.uco.ucochallenge.config.vault.VaultService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,13 +14,23 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/vault")
-@RequiredArgsConstructor
 public class VaultTestController {
 
     private final VaultService vaultService;
     private final DatabaseProperties databaseProperties;
     private final JwtProperties jwtProperties;
     private final SmtpProperties smtpProperties;
+
+    public VaultTestController(
+            VaultService vaultService,
+            DatabaseProperties databaseProperties,
+            JwtProperties jwtProperties,
+            SmtpProperties smtpProperties) {
+        this.vaultService = vaultService;
+        this.databaseProperties = databaseProperties;
+        this.jwtProperties = jwtProperties;
+        this.smtpProperties = smtpProperties;
+    }
 
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> checkVaultHealth() {

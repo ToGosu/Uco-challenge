@@ -2,7 +2,6 @@ package co.edu.uco.ucochallenge.config.vault;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.vault.core.VaultTemplate;
 import org.springframework.vault.support.VaultResponse;
@@ -17,11 +16,17 @@ public class VaultService {
     
     private final VaultTemplate vaultTemplate;
 
-    @Autowired
     public VaultService(VaultTemplate vaultTemplate) {
         this.vaultTemplate = vaultTemplate;
     }
 
+    /**
+     * Obtiene un secreto específico de Vault
+     * 
+     * @param path Ruta del secreto (ej: "secret/data/database")
+     * @param key  Clave del secreto (ej: "password")
+     * @return Valor del secreto o Optional.empty() si no existe
+     */
     public Optional<String> getSecret(String path, String key) {
         try {
             VaultResponse response = vaultTemplate.read(path);
@@ -35,6 +40,12 @@ public class VaultService {
         return Optional.empty();
     }
 
+    /**
+     * Obtiene todos los secretos de un path
+     * 
+     * @param path Ruta completa (ej: "secret/data/database")
+     * @return Map con todos los secretos o Optional.empty()
+     */
     public Optional<Map<String, Object>> getAllSecrets(String path) {
         try {
             VaultResponse response = vaultTemplate.read(path);
@@ -47,6 +58,13 @@ public class VaultService {
         return Optional.empty();
     }
 
+    /**
+     * Escribe un secreto en Vault
+     * 
+     * @param path Ruta donde escribir (ej: "secret/data/mi-secreto")
+     * @param data Map con los datos a guardar
+     * @return true si se escribió correctamente
+     */
     public boolean writeSecret(String path, Map<String, Object> data) {
         try {
             vaultTemplate.write(path, data);
@@ -58,6 +76,9 @@ public class VaultService {
         }
     }
 
+    /**
+     * Elimina un secreto de Vault
+     */
     public boolean deleteSecret(String path) {
         try {
             vaultTemplate.delete(path);
@@ -69,6 +90,9 @@ public class VaultService {
         }
     }
 
+    /**
+     * Verifica si Vault está disponible y funcionando
+     */
     public boolean isVaultHealthy() {
         try {
             vaultTemplate.opsForSys().health();

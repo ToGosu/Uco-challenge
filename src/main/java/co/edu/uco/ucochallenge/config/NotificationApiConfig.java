@@ -1,15 +1,17 @@
 package co.edu.uco.ucochallenge.config;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 
 @Configuration
-@RequiredArgsConstructor
 public class NotificationApiConfig {
 
     private final NotificationApiProperties properties;
+
+    public NotificationApiConfig(NotificationApiProperties properties) {
+        this.properties = properties;
+    }
 
     @Bean
     public RestClient notificationApiRestClient() {

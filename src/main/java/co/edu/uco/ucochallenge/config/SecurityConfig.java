@@ -1,21 +1,25 @@
 package co.edu.uco.ucochallenge.config;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 @EnableWebSecurity
-@RequiredArgsConstructor
 public class SecurityConfig {
 
     private final Auth0Properties auth0Properties;
+
+    public SecurityConfig(Auth0Properties auth0Properties) {
+        this.auth0Properties = auth0Properties;
+    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -59,17 +63,17 @@ public class SecurityConfig {
             this.audience = audience;
         }
 
+        @Override
         public OAuth2TokenValidatorResult validate(Jwt jwt) {
             if (jwt.getAudience().contains(audience)) {
                 return OAuth2TokenValidatorResult.success();
             }
-            return OAuth2TokenValidatorResult.failure(
-                new org.springframework.security.oauth2.core.OAuth2Error(
-                    "invalid_token", 
-                    "The required audience is missing", 
-                    null
-                )
+            OAuth2Error error = new OAuth2Error(
+                "invalid_token", 
+                "The required audience is missing", 
+                null
             );
+            return OAuth2TokenValidatorResult.failure(error);
         }
     }
 }
