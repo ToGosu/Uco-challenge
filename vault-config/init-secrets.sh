@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export VAULT_ADDR='http://localhost:8200'
-export VAULT_TOKEN='dev-root-token-id'
+export VAULT_TOKEN='root'
 
 echo "🔐 Inicializando Vault con secretos..."
 
@@ -97,4 +97,4 @@ echo ""
 
 echo "✅ Configuración de Vault completada"
 echo "🌐 Vault UI disponible en: http://localhost:8200"
-echo "🔑 Token de desarrollo: dev-root-token-id"
+echo "🔑 Token de desarrollo: root"
