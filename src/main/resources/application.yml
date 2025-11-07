@@ -41,6 +41,11 @@ spring:
           issuer-uri: ${auth0.issuer-uri:https://dev-l7bs34cafn0six34.us.auth0.com/}
           audience: ${auth0.audience:https://ucochallenge-api/}
 
+# Auth0 Configuration
+auth0:
+  issuer-uri: https://dev-l7bs34cafn0six34.us.auth0.com/
+  audience: https://ucochallenge-api/
+
 # NotificationAPI (desde Vault)
 notificationapi:
   base-url: ${notificationapi.base-url:https://api.notificationapi.com}
