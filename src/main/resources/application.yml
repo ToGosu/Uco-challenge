@@ -1,14 +1,103 @@
-
-
-notificationapi:
-  client-id: ${NOTIFICATIONAPI_CLIENT_ID}
-  client-secret: ${NOTIFICATIONAPI_CLIENT_SECRET}
-
-
 spring:
+  application:
+    name: uco-challenge
+  
+  # Configuración de Base de Datos (desde Vault)
+  datasource:
+    url: ${database.url:jdbc:postgresql://localhost:5432/ucochallenge}
+    username: ${database.username:postgres}
+    password: ${database.password:postgres}
+    driver-class-name: org.postgresql.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  
+  # Vault Configuration
+  cloud:
+    vault:
+      enabled: true
+      uri: ${VAULT_URI:http://localhost:8200}
+      token: ${VAULT_TOKEN:dev-root-token-id}
+      authentication: TOKEN
+      kv:
+        enabled: true
+        backend: secret
+        default-context: ${spring.application.name}
+  
+  config:
+    import: optional:vault://
+  
+  # Security OAuth2 (desde Vault)
   security:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: https://dev-l7bs34cafn0six34.us.auth0.com/
-          audience: https://ucochallenge-api/		
+          issuer-uri: ${auth0.issuer-uri:https://dev-l7bs34cafn0six34.us.auth0.com/}
+          audience: ${auth0.audience:https://ucochallenge-api/}
+
+# NotificationAPI (desde Vault)
+notificationapi:
+  base-url: ${notificationapi.base-url:https://api.notificationapi.com}
+  client-id: ${notificationapi.client-id:your-client-id}
+  client-secret: ${notificationapi.client-secret:your-client-secret}
+
+# Notification Catalog Service (opcional)
+notification:
+  catalog:
+    url: http://localhost:8081
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,vault,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Logging
+logging:
+  level:
+    root: INFO
+    co.edu.uco.ucochallenge: DEBUG
+    org.springframework.vault: DEBUG
+    org.springframework.security: DEBUG
+
+---
+# Profile: Docker
+spring:
+  config:
+    activate:
+      on-profile: docker
+  
+  cloud:
+    vault:
+      uri: http://vault:8200
+      token: dev-root-token-id
+  
+  datasource:
+    url: jdbc:postgresql://db:5432/ucochallenge
+
+---
+# Profile: Production (Railway/Render)
+spring:
+  config:
+    activate:
+      on-profile: prod
+  
+  cloud:
+    vault:
+      uri: ${VAULT_URI}
+      authentication: APPROLE
+      app-role:
+        role-id: ${VAULT_ROLE_ID}
+        secret-id: ${VAULT_SECRET_ID}
+        role: my-app
+        app-role-path: approle

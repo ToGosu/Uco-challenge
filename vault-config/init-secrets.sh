@@ -16,7 +16,7 @@ vault secrets enable -path=secret kv-v2 2>/dev/null || echo "Secret engine ya ha
 echo "📦 Configurando secretos de base de datos..."
 vault kv put secret/database \
   url='jdbc:postgresql://localhost:5432/mydb' \
-  username='postgre' \
+  username='postgres' \
   password='C2wvVCP18#6@'
 
 # JWT secrets
@@ -34,6 +34,18 @@ vault kv put secret/smtp \
   username='your-email@gmail.com' \
   password='your-app-password'
 
+# NotificationAPI secrets
+echo "🔔 Configurando secretos NotificationAPI..."
+vault kv put secret/notificationapi \
+  base-url='https://api.notificationapi.com' \
+  client-id='71ys9hvevyqib7ecozhprd0sr1' \
+  client-secret='6u2xwg1knmb07rvgttj8mj50e4ut41tjv6p7qhuxkreep0skkumb0eo902'
+
+# Auth0 secrets
+echo "🔐 Configurando secretos Auth0..."
+vault kv put secret/auth0 \
+  issuer-uri='https://dev-l7bs34cafn0six34.us.auth0.com/' \
+  audience='https://ucochallenge-api/'
 
 # API Gateway secrets
 echo "🚪 Configurando secretos API Gateway..."

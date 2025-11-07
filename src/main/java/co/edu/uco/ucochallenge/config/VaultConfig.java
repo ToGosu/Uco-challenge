@@ -7,7 +7,8 @@ import org.springframework.vault.annotation.VaultPropertySource;
 @VaultPropertySource(value = "secret/database", renewal = VaultPropertySource.Renewal.ROTATE)
 @VaultPropertySource(value = "secret/jwt", renewal = VaultPropertySource.Renewal.ROTATE)
 @VaultPropertySource(value = "secret/smtp", renewal = VaultPropertySource.Renewal.ROTATE)
-@VaultPropertySource(value = "secret/sms", renewal = VaultPropertySource.Renewal.ROTATE)
+@VaultPropertySource(value = "secret/notificationapi", renewal = VaultPropertySource.Renewal.ROTATE)
+@VaultPropertySource(value = "secret/auth0", renewal = VaultPropertySource.Renewal.ROTATE)
 @VaultPropertySource(value = "secret/api-gateway", renewal = VaultPropertySource.Renewal.ROTATE)
 public class VaultConfig {
     // Spring Cloud Vault se encarga automáticamente de leer estos secretos
