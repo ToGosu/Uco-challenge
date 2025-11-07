@@ -27,7 +27,7 @@ public class StateEntity {
 	@Column(name = "nombre")
 	private String name;
 
-	protected StateEntity() {
+	public StateEntity() {
 		setId(UUIDHelper.getDefault());
 		setCountry(new CountryEntity());
 		setName(TextHelper.getDefault());
@@ -76,7 +76,7 @@ public class StateEntity {
 		return name;
 	}
 
-	private void setId(final UUID id) {
+	public void setId(final UUID id) {
 		this.id = UUIDHelper.getDefault(id);
 	}
 
@@ -84,7 +84,7 @@ public class StateEntity {
 		this.country = ObjectHelper.getDefault(country, new CountryEntity());
 	}
 
-	private void setName(final String name) {
+	public void setName(final String name) {
 		this.name = TextHelper.getDefaultWithTrim(name);
 	}
 

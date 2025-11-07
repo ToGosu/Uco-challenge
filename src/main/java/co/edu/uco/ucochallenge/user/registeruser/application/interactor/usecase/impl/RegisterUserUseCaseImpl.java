@@ -58,7 +58,7 @@ public class RegisterUserUseCaseImpl implements RegisterUserUseCase {
         UserEntity userEntity = buildUserEntity(domain, idTypeEntity, cityEntity);
         userRepository.save(userEntity);
 
-        // 4️⃣ Enviar notificaciones (async recomendado)
+        // 4️⃣ Enviar notificaciones
         sendNotifications(domain);
 
         return Void.returnVoid();
@@ -145,10 +145,17 @@ public class RegisterUserUseCaseImpl implements RegisterUserUseCase {
 
     private void sendNotifications(RegisterUserDomain domain) {
         try {
+            // Ahora usa el NotificationClient mejorado que:
+            // 1. Consulta el template del catálogo (opcional)
+            // 2. Procesa los placeholders
+            // 3. Envía el email/SMS real via NotificationAPI
+            
             notificationClient.sendWelcomeEmail(domain.getEmail(), domain.getFirstName());
             notificationClient.sendWelcomeSms(domain.getMobileNumber(), domain.getFirstName());
+            
         } catch (Exception e) {
             System.err.println("⚠️ Error enviando notificaciones: " + e.getMessage());
+            // No fallar el registro si fallan las notificaciones
         }
     }
 }

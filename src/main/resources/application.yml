@@ -1,3 +1,8 @@
+notificationapi:
+  client-id: ${NOTIFICATIONAPI_CLIENT_ID}
+  client-secret: ${NOTIFICATIONAPI_CLIENT_SECRET}
+
+
 spring:
   security:
     oauth2:
