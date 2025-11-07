@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: uco-challenge
+  
+  cloud:
+    vault:
+      enabled: true
+      uri: ${VAULT_URI:http://localhost:8200}
+      token: ${VAULT_TOKEN:dev-root-token-id}
+      connection-timeout: 5000
+      read-timeout: 15000
+      kv:
+        enabled: true
+        backend: secret
+        default-context: application
+      fail-fast: false

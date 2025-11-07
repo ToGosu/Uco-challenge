@@ -8,13 +8,14 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class NotificationApiConfig {
 
-    @Value("${notificationapi.base.url}")
+    // ✅ USAR GUIONES en @Value (kebab-case)
+    @Value("${notificationapi.base-url}")
     private String baseUrl;
 
-    @Value("${notificationapi.client.id}")
+    @Value("${notificationapi.client-id}")
     private String clientId;
 
-    @Value("${notificationapi.client.secret}")
+    @Value("${notificationapi.client-secret}")
     private String clientSecret;
 
     @Bean
@@ -26,9 +27,6 @@ public class NotificationApiConfig {
             .build();
     }
 
-    /**
-     * Codifica las credenciales en Base64 para autenticación básica
-     */
     private String encodeCredentials() {
         String credentials = clientId + ":" + clientSecret;
         return java.util.Base64.getEncoder().encodeToString(credentials.getBytes());
