@@ -23,7 +23,7 @@ spring:
     vault:
       enabled: true
       uri: ${VAULT_URI:http://localhost:8200}
-      token: ${VAULT_TOKEN:dev-root-token-id}
+      token: ${VAULT_TOKEN:root}
       authentication: TOKEN
       kv:
         enabled: true
@@ -80,7 +80,7 @@ spring:
   cloud:
     vault:
       uri: http://vault:8200
-      token: dev-root-token-id
+      token: root
   
   datasource:
     url: jdbc:postgresql://db:5432/ucochallenge
