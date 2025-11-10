@@ -12,7 +12,7 @@ import co.edu.uco.ucochallenge.city.getcities.application.interactor.GetCitiesIn
 import co.edu.uco.ucochallenge.city.getcities.application.interactor.dto.CityOutputDTO;
 
 @RestController
-@RequestMapping("/uco-challenge/api/v1/cities")
+@RequestMapping({"/uco-challenge/api/v1/cities", "/api/v1/cities", "/api/api/v1/cities"})
 public class CityController {
 
     private final GetCitiesInteractor interactor;

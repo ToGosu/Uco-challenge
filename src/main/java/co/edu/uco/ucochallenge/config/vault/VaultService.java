@@ -2,6 +2,7 @@ package co.edu.uco.ucochallenge.config.vault;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 import org.springframework.vault.core.VaultTemplate;
 import org.springframework.vault.support.VaultResponse;
@@ -10,6 +11,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @Service
+@ConditionalOnBean(VaultTemplate.class)
 public class VaultService {
 
     private static final Logger log = LoggerFactory.getLogger(VaultService.class);

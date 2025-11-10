@@ -12,7 +12,7 @@ import co.edu.uco.ucochallenge.idtype.getidtypes.application.interactor.GetIdTyp
 import co.edu.uco.ucochallenge.idtype.getidtypes.application.interactor.dto.IdTypeOutputDTO;
 
 @RestController
-@RequestMapping("/uco-challenge/api/v1/idtypes")
+@RequestMapping({"/uco-challenge/api/v1/idtypes", "/api/v1/idtypes", "/api/api/v1/idtypes"})
 public class IdTypeController {
 
     private final GetIdTypesInteractor interactor;

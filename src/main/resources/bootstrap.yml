@@ -4,9 +4,9 @@ spring:
   
   cloud:
     vault:
-      enabled: true
+      enabled: ${VAULT_ENABLED:false}
       uri: ${VAULT_URI:http://localhost:8200}
-      token: ${VAULT_TOKEN:dev-root-token-id}
+      token: ${VAULT_TOKEN:root}
       connection-timeout: 5000
       read-timeout: 15000
       kv:

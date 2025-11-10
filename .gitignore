@@ -31,3 +31,11 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Certificados SSL (desarrollo) ###
+certs/
+*.crt
+*.key
+*.pem
+*.csr
+*.srl

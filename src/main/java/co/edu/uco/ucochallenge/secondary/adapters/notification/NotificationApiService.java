@@ -1,11 +1,11 @@
 package co.edu.uco.ucochallenge.secondary.adapters.notification;
 
+import co.edu.uco.ucochallenge.config.NotificationApiProperties;
 import com.notificationapi.NotificationApi;
 import com.notificationapi.model.EmailOptions;
 import com.notificationapi.model.NotificationRequest;
 import com.notificationapi.model.SmsOptions;
 import com.notificationapi.model.User;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -15,12 +15,9 @@ public class NotificationApiService {
 
     private final NotificationApi api;
 
-    public NotificationApiService(
-            @Value("${notificationapi.client-id}") String clientId,
-            @Value("${notificationapi.client-secret}") String clientSecret
-    ) {
-        // Cliente del SDK oficial
-        this.api = new NotificationApi(clientId, clientSecret);
+    public NotificationApiService(NotificationApiProperties properties) {
+        // Cliente del SDK oficial usando NotificationApiProperties
+        this.api = new NotificationApi(properties.getClientId(), properties.getClientSecret());
     }
 
     /**

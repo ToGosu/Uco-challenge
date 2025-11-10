@@ -4,6 +4,7 @@ import co.edu.uco.ucochallenge.config.DatabaseProperties;
 import co.edu.uco.ucochallenge.config.JwtProperties;
 import co.edu.uco.ucochallenge.config.SmtpProperties;
 import co.edu.uco.ucochallenge.config.vault.VaultService;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,6 +15,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/vault")
+@ConditionalOnBean(VaultService.class)
 public class VaultTestController {
 
     private final VaultService vaultService;

@@ -1,13 +1,16 @@
 
+server:
+  port: ${SERVER_PORT:8080}
+
 spring:
   application:
     name: uco-challenge
   
-  # Configuración de Base de Datos (desde Vault)
+  # Configuración de Base de Datos (desde Vault o properties con valores por defecto)
   datasource:
-    url: ${database.url:jdbc:postgresql://localhost:5432/ucochallenge}
-    username: ${database.username:postgres}
-    password: ${database.password:postgres}
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/ucochallenge}
+    username: ${DATABASE_USERNAME:postgres}
+    password: 'C2wvVCP18#6@'
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -21,7 +24,7 @@ spring:
   # Vault Configuration
   cloud:
     vault:
-      enabled: true
+      enabled: ${VAULT_ENABLED:false}
       uri: ${VAULT_URI:http://localhost:8200}
       token: ${VAULT_TOKEN:root}
       authentication: TOKEN
@@ -29,6 +32,10 @@ spring:
         enabled: true
         backend: secret
         default-context: ${spring.application.name}
+      fail-fast: false
+    # Spring Cloud Compatibility
+    compatibility-verifier:
+      enabled: false
   
   config:
     import: optional:vault://
@@ -38,29 +45,53 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: https://dev-l7bs34cafn0six34.us.auth0.com/
-          audience: https://ucochallenge-api/
+          issuer-uri: ${auth0.issuer-uri:https://dev-l7bs34cafn0six34.us.auth0.com/}
+          audience: ${auth0.audience:https://ucochallenge-api/}
 
-# NotificationAPI (desde Vault)
+# Auth0 Configuration (para Auth0Properties)
+auth0:
+  issuer-uri: ${AUTH0_ISSUER_URI:https://dev-l7bs34cafn0six34.us.auth0.com/}
+  audience: ${AUTH0_AUDIENCE:https://ucochallenge-api/}
+
+# API Gateway Configuration
+api:
+  gateway:
+    base-url: ${API_GATEWAY_URL:http://localhost:8090}
+    enabled: ${API_GATEWAY_ENABLED:true}
+
+# NotificationAPI (desde Vault o properties)
 notificationapi:
-  base-url: ${notificationapi.base-url:https://api.notificationapi.com}
-  client-id: ${notificationapi.client-id:your-client-id}
-  client-secret: ${notificationapi.client-secret:your-client-secret}
+  base-url: ${NOTIFICATIONAPI_BASE_URL:https://api.notificationapi.com}
+  client-id: ${NOTIFICATIONAPI_CLIENT_ID:71ys9hvevyqib7ecozhprd0sr1}
+  client-secret: ${NOTIFICATIONAPI_CLIENT_SECRET:6u2xwg1knmb07rvgttj8mj50e4ut41tjv6p7qhuxkreep0skkumb0eo902}
 
-# Notification Catalog Service (opcional)
+# Notification Catalog Service (a través del API Gateway)
+# Nota: Si api.gateway.base-url no está definido, usa el valor directo
 notification:
   catalog:
-    url: http://localhost:8081
+    url: ${NOTIFICATION_CATALOG_URL:http://localhost:8090/catalog}
+  
+# Parameters Service (a través del API Gateway)
+parameters:
+  service:
+    url: ${PARAMETERS_SERVICE_URL:http://localhost:8090/catalog/api/v1/parameters}
 
 # Actuator
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,vault,metrics
+        include: health,info,vault,metrics,prometheus
   endpoint:
     health:
       show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
 
 # Logging
 logging:
@@ -69,6 +100,17 @@ logging:
     co.edu.uco.ucochallenge: DEBUG
     org.springframework.vault: DEBUG
     org.springframework.security: DEBUG
+    io.opentelemetry: INFO
+
+# OpenTelemetry Configuration
+otel:
+  service:
+    name: ${spring.application.name}
+    version: 0.0.1-SNAPSHOT
+  exporter:
+    otlp:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4317}
+      protocol: ${OTEL_EXPORTER_OTLP_PROTOCOL:grpc}
 
 ---
 # Profile: Docker
@@ -79,11 +121,25 @@ spring:
   
   cloud:
     vault:
+      enabled: ${VAULT_ENABLED:true}
       uri: http://vault:8200
       token: root
   
   datasource:
     url: jdbc:postgresql://db:5432/ucochallenge
+
+# API Gateway en Docker (usando nombre del servicio)
+api:
+  gateway:
+    base-url: ${API_GATEWAY_URL:https://nginx-waf:8443/api-gateway}
+
+notification:
+  catalog:
+    url: ${NOTIFICATION_CATALOG_URL:https://nginx-waf:8443/catalog}
+
+parameters:
+  service:
+    url: ${PARAMETERS_SERVICE_URL:https://nginx-waf:8443/catalog/api/v1/parameters}
 
 ---
 # Profile: Production (Railway/Render)
@@ -94,6 +150,7 @@ spring:
   
   cloud:
     vault:
+      enabled: ${VAULT_ENABLED:true}
       uri: ${VAULT_URI}
       authentication: APPROLE
       app-role:
@@ -101,3 +158,16 @@ spring:
         secret-id: ${VAULT_SECRET_ID}
         role: my-app
         app-role-path: approle
+
+# API Gateway en Producción
+api:
+  gateway:
+    base-url: ${API_GATEWAY_URL}
+
+notification:
+  catalog:
+    url: ${NOTIFICATION_CATALOG_URL:${api.gateway.base-url}/catalog}
+
+parameters:
+  service:
+    url: ${PARAMETERS_SERVICE_URL:${api.gateway.base-url}/catalog/api/v1/parameters}
