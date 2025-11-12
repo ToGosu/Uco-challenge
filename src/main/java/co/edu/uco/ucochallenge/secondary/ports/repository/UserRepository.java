@@ -1,5 +1,6 @@
 package co.edu.uco.ucochallenge.secondary.ports.repository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,4 +13,6 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID> {
 	boolean existsByIdNumber(String idNumber);
 	boolean existsByEmail(String email);
 	boolean existsByMobileNumber(String mobileNumber);
+	Optional<UserEntity> findByEmailConfirmationToken(String token);
+	Optional<UserEntity> findByMobileConfirmationToken(String token);
 }

@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
   db:
     image: postgres:15-alpine
     container_name: postgres-db
@@ -10,8 +9,10 @@ services:
       POSTGRES_DB: ucochallenge
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 'C2wvVCP18#6@'
+      POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-data.sql:/docker-entrypoint-initdb.d/01-init-data.sql:ro
     networks:
       - app-network
     healthcheck:
@@ -20,7 +21,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # HashiCorp Vault
   vault:
     image: hashicorp/vault:latest
     container_name: vault
@@ -30,6 +30,7 @@ services:
     environment:
       VAULT_DEV_ROOT_TOKEN_ID: 'root'
       VAULT_DEV_LISTEN_ADDRESS: '0.0.0.0:8200'
+      VAULT_ADDR: 'http://0.0.0.0:8200'
     cap_add:
       - IPC_LOCK
     volumes:
@@ -37,13 +38,38 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "vault", "status"]
+      test: ["CMD-SHELL", "VAULT_ADDR=http://127.0.0.1:8200 vault status || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
 
-  # OpenTelemetry Collector
+  vault-init:
+    image: hashicorp/vault:latest
+    container_name: vault-init
+    depends_on:
+      vault:
+        condition: service_healthy
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: root
+    volumes:
+      - ./vault-config/init-secrets-container.sh:/init-secrets.sh:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        apk add --no-cache bash curl
+        echo "Esperando a que Vault esté completamente listo..."
+        sleep 10
+        echo "Inicializando Vault..."
+        chmod +x /init-secrets.sh
+        bash /init-secrets.sh || echo "Vault ya puede estar inicializado"
+    networks:
+      - app-network
+    restart: "no"
+    profiles:
+      - init
+
   otel-collector:
     image: otel/opentelemetry-collector:latest
     container_name: otel-collector
@@ -52,28 +78,27 @@ services:
     volumes:
       - ./otel-collector/otel-collector-config.yml:/etc/otel-collector-config.yml
     ports:
-      - "4317:4317"   # OTLP gRPC receiver
-      - "4318:4318"   # OTLP HTTP receiver
-      - "8888:8888"   # Metrics
+      - "4317:4317"
+      - "4318:4318"
+      - "9090:9090"
     networks:
       - app-network
     depends_on:
       - jaeger
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8888/metrics"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/metrics"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # Jaeger - Tracing UI
   jaeger:
     image: jaegertracing/all-in-one:latest
     container_name: jaeger
     restart: unless-stopped
     ports:
-      - "16686:16686"   # UI
-      - "14250:14250"   # gRPC
-      - "14268:14268"   # HTTP
+      - "16686:16686"
+      - "14250:14250"
+      - "14268:14268"
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
     networks:
@@ -84,7 +109,6 @@ services:
       timeout: 10s
       retries: 3
 
-  # Spring Boot Application (Backend)
   app:
     build:
       context: .
@@ -98,7 +122,6 @@ services:
       VAULT_URI: http://vault:8200
       VAULT_TOKEN: root
       JAVA_OPTS: "-Xmx512m -Xms256m"
-      # OpenTelemetry Configuration
       OTEL_SERVICE_NAME: uco-challenge-backend
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
@@ -122,7 +145,114 @@ services:
       retries: 3
       start_period: 60s
 
-  # Nginx WAF (Web Application Firewall)
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - redis-data:/data
+
+  api-gateway:
+    build:
+      context: C:\UCO\IS2\Workspace-is2-2025\apigateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    restart: unless-stopped
+    expose:
+      - "8090"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      JAVA_OPTS: "-Xmx512m -Xms256m"
+      # OpenTelemetry Configuration
+      OTEL_SERVICE_NAME: api-gateway
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_RESOURCE_ATTRIBUTES: service.name=api-gateway,service.version=0.0.1-SNAPSHOT,deployment.environment=development
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    depends_on:
+      redis:
+        condition: service_healthy
+      app:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8090/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  catalog-service:
+    build:
+      context: C:\UCO\IS2\Workspace-is2-2025\catalogservice
+      dockerfile: Dockerfile
+    container_name: catalog-service
+    restart: unless-stopped
+    expose:
+      - "8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      JAVA_OPTS: "-Xmx512m -Xms256m"
+      # OpenTelemetry Configuration
+      OTEL_SERVICE_NAME: catalog-service
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_RESOURCE_ATTRIBUTES: service.name=catalog-service,service.version=0.0.1-SNAPSHOT,deployment.environment=development
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  frontend:
+    build:
+      context: C:\Users\santi\Desktop\uco-challenge-fr
+      dockerfile: Dockerfile
+    container_name: uco-challenge-fr
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   nginx-waf:
     build:
       context: ./nginx
@@ -130,14 +260,18 @@ services:
     container_name: nginx-waf
     restart: unless-stopped
     ports:
-      - "80:80"      # HTTP (redirige a HTTPS)
-      - "8443:8443"  # HTTPS
+      - "80:80"
+      - "8443:8443"
+      - "5173:5173"
     volumes:
       - ./certs:/etc/nginx/ssl:ro
       - nginx-logs:/var/log/nginx
       - modsec-logs:/var/log/modsec
     depends_on:
       - app
+      - api-gateway
+      - catalog-service
+      - frontend
     networks:
       - app-network
     healthcheck:
@@ -153,5 +287,6 @@ networks:
 volumes:
   vault-data:
   postgres-data:
+  redis-data:
   nginx-logs:
   modsec-logs:

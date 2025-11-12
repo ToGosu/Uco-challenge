@@ -1,5 +1,6 @@
 package co.edu.uco.ucochallenge.user.registeruser.application.interactor.usecase.impl;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -40,12 +41,10 @@ public class RegisterUserUseCaseImpl implements RegisterUserUseCase {
     @Override
     public Void execute(final RegisterUserDomain domain) {
 
-        // 1️⃣ Validaciones de negocio
         validateUserDoesNotExist(domain);
         validateRequiredFields(domain);
         setDefaultsIfNeeded(domain);
 
-        // 2️⃣ Obtener entidades relacionadas completas de la BD
         IdTypeEntity idTypeEntity = idTypeRepository.findById(domain.getIdType())
                 .orElseThrow(() -> new ValidationException(
                         "Tipo de identificación no encontrado: " + domain.getIdType()));
@@ -54,12 +53,10 @@ public class RegisterUserUseCaseImpl implements RegisterUserUseCase {
                 .orElseThrow(() -> new ValidationException(
                         "Ciudad no encontrada: " + domain.getHomeCity()));
 
-        // 3️⃣ Crear y guardar el usuario
         UserEntity userEntity = buildUserEntity(domain, idTypeEntity, cityEntity);
         userRepository.save(userEntity);
 
-        // 4️⃣ Enviar notificaciones
-        sendNotifications(domain);
+        sendNotifications(domain, userEntity);
 
         return Void.returnVoid();
     }
@@ -140,22 +137,48 @@ public class RegisterUserUseCaseImpl implements RegisterUserUseCase {
         userEntity.setEmailConfirmed(false);
         userEntity.setMobileNumberConfirmed(false);
 
+        // Generar tokens de confirmación
+        String emailToken = UUID.randomUUID().toString();
+        String mobileToken = generateMobileConfirmationCode();
+        
+        userEntity.setEmailConfirmationToken(emailToken);
+        userEntity.setMobileConfirmationToken(mobileToken);
+        userEntity.setEmailConfirmationTokenExpiry(LocalDateTime.now().plusDays(1));
+        userEntity.setMobileConfirmationTokenExpiry(LocalDateTime.now().plusDays(1));
+
         return userEntity;
     }
 
-    private void sendNotifications(RegisterUserDomain domain) {
+    private String generateMobileConfirmationCode() {
+        // Generar código de 6 dígitos para SMS
+        return String.format("%06d", (int)(Math.random() * 1000000));
+    }
+
+    private void sendNotifications(RegisterUserDomain domain, UserEntity userEntity) {
         try {
-            // Ahora usa el NotificationClient mejorado que:
-            // 1. Consulta el template del catálogo (opcional)
-            // 2. Procesa los placeholders
-            // 3. Envía el email/SMS real via NotificationAPI
-            
+            // Enviar email de bienvenida
             notificationClient.sendWelcomeEmail(domain.getEmail(), domain.getFirstName());
+            
+            // Enviar email de confirmación con token
+            notificationClient.sendEmailConfirmation(
+                domain.getEmail(), 
+                domain.getFirstName(), 
+                userEntity.getEmailConfirmationToken(),
+                userEntity.getId().toString()
+            );
+            
+            // Enviar SMS de bienvenida
             notificationClient.sendWelcomeSms(domain.getMobileNumber(), domain.getFirstName());
             
+            // Enviar SMS de confirmación con código
+            notificationClient.sendMobileConfirmation(
+                domain.getMobileNumber(), 
+                domain.getFirstName(), 
+                userEntity.getMobileConfirmationToken()
+            );
+            
         } catch (Exception e) {
-            System.err.println("⚠️ Error enviando notificaciones: " + e.getMessage());
-            // No fallar el registro si fallan las notificaciones
+            System.err.println("Error enviando notificaciones: " + e.getMessage());
         }
     }
 }

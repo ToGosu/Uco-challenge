@@ -18,26 +18,34 @@ processors:
     check_interval: 1s
 
 exporters:
-  # Exportar a Jaeger para visualización
-  jaeger:
-    endpoint: jaeger:14250
+  # Exportar a Jaeger usando OTLP HTTP (Jaeger all-in-one tiene OTLP habilitado)
+  otlphttp/jaeger:
+    endpoint: http://jaeger:4318
     tls:
       insecure: true
   
-  # Logging para debugging (opcional)
-  logging:
-    loglevel: info
-
-  # Exportar a console para desarrollo
+  # Exportar a console para debugging
   debug:
     verbosity: detailed
+  
+  # Exportar métricas en formato Prometheus
+  prometheus:
+    endpoint: "0.0.0.0:9090"
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [jaeger, logging]
+      exporters: [otlphttp/jaeger, debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus, debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug]
   
   extensions: []
   
@@ -46,5 +54,4 @@ service:
       level: info
     metrics:
       level: detailed
-      address: 0.0.0.0:8888
 

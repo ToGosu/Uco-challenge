@@ -1,5 +1,7 @@
 package co.edu.uco.ucochallenge.config;
 
+import java.util.Arrays;
+
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -10,14 +12,16 @@ import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
-import org.springframework.security.oauth2.jwt.*;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtDecoders;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-import java.util.Arrays;
 
 @Configuration
 @EnableWebSecurity
@@ -34,10 +38,17 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+            // CORS debe configurarse primero
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/uco-challenge/api/v1/users/**").authenticated()
+                // Permitir endpoints de confirmación sin autenticación (deben ir ANTES de la regla general)
+                .requestMatchers("/uco-challenge/api/v1/users/confirm-email", "/uco-challenge/v1/users/confirm-email").permitAll()
+                .requestMatchers("/uco-challenge/api/v1/users/confirm-mobile", "/uco-challenge/v1/users/confirm-mobile").permitAll()
+                // Permitir registro de usuarios sin autenticación
+                .requestMatchers("/uco-challenge/api/v1/users", "/uco-challenge/v1/users").permitAll()
+                // Los demás endpoints de usuarios requieren autenticación
+                .requestMatchers("/uco-challenge/api/v1/users/**", "/uco-challenge/v1/users/**").authenticated()
                 .requestMatchers("/api/vault/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/uco-challenge/api/v1/health/**").permitAll()
@@ -47,7 +58,6 @@ public class SecurityConfig {
                 .anyRequest().permitAll()
             );
         
-        // Solo configurar JWT si el issuer-uri está disponible y el bean existe
         String issuerUri = auth0Properties.getIssuerUri();
         if (StringUtils.hasText(issuerUri)) {
             try {
@@ -56,8 +66,7 @@ public class SecurityConfig {
                     .jwt(jwt -> jwt.decoder(jwtDecoder))
                 );
             } catch (Exception e) {
-                // Si el bean no existe, no configuramos OAuth2 Resource Server
-                // Esto puede pasar si la propiedad no está disponible
+                // Si no se puede crear el JwtDecoder, continuar sin OAuth2
             }
         }
         
@@ -67,9 +76,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+        // Configurar orígenes permitidos
         configuration.setAllowedOrigins(Arrays.asList(
             "http://localhost:5173",
+            "http://localhost:5174",
             "https://localhost:5173",
+            "https://localhost:5174",
             "http://localhost:3000",
             "https://localhost:3000",
             "http://localhost:8080",
@@ -78,11 +90,14 @@ public class SecurityConfig {
             "https://localhost:8090"
         ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        // Permitir todos los headers para evitar problemas
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
         configuration.setExposedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
+        configuration.setMaxAge(3600L); // Cache preflight por 1 hora
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // Registrar CORS solo una vez para todas las rutas
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
@@ -108,9 +123,6 @@ public class SecurityConfig {
         return jwtDecoder;
     }
 
-    /**
-     * Validador personalizado de audience para Auth0
-     */
     static class AudienceValidator implements OAuth2TokenValidator<Jwt> {
         private final String audience;
 

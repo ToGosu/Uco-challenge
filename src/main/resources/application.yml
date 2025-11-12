@@ -6,7 +6,6 @@ spring:
   application:
     name: uco-challenge
   
-  # Configuración de Base de Datos (desde Vault o properties con valores por defecto)
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/ucochallenge}
     username: ${DATABASE_USERNAME:postgres}
@@ -21,7 +20,6 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
   
-  # Vault Configuration
   cloud:
     vault:
       enabled: ${VAULT_ENABLED:false}
@@ -33,14 +31,12 @@ spring:
         backend: secret
         default-context: ${spring.application.name}
       fail-fast: false
-    # Spring Cloud Compatibility
     compatibility-verifier:
       enabled: false
   
   config:
     import: optional:vault://
   
-  # Security OAuth2 (desde Vault)
   security:
     oauth2:
       resourceserver:
@@ -48,7 +44,6 @@ spring:
           issuer-uri: ${auth0.issuer-uri:https://dev-l7bs34cafn0six34.us.auth0.com/}
           audience: ${auth0.audience:https://ucochallenge-api/}
 
-# Auth0 Configuration (para Auth0Properties)
 auth0:
   issuer-uri: ${AUTH0_ISSUER_URI:https://dev-l7bs34cafn0six34.us.auth0.com/}
   audience: ${AUTH0_AUDIENCE:https://ucochallenge-api/}
@@ -59,24 +54,20 @@ api:
     base-url: ${API_GATEWAY_URL:http://localhost:8090}
     enabled: ${API_GATEWAY_ENABLED:true}
 
-# NotificationAPI (desde Vault o properties)
 notificationapi:
   base-url: ${NOTIFICATIONAPI_BASE_URL:https://api.notificationapi.com}
   client-id: ${NOTIFICATIONAPI_CLIENT_ID:71ys9hvevyqib7ecozhprd0sr1}
   client-secret: ${NOTIFICATIONAPI_CLIENT_SECRET:6u2xwg1knmb07rvgttj8mj50e4ut41tjv6p7qhuxkreep0skkumb0eo902}
 
-# Notification Catalog Service (a través del API Gateway)
-# Nota: Si api.gateway.base-url no está definido, usa el valor directo
 notification:
   catalog:
     url: ${NOTIFICATION_CATALOG_URL:http://localhost:8090/catalog}
+  base-url: ${NOTIFICATION_BASE_URL:http://localhost:8080/uco-challenge}
   
-# Parameters Service (a través del API Gateway)
 parameters:
   service:
     url: ${PARAMETERS_SERVICE_URL:http://localhost:8090/catalog/api/v1/parameters}
 
-# Actuator
 management:
   endpoints:
     web:
@@ -93,7 +84,6 @@ management:
     sampling:
       probability: 1.0
 
-# Logging
 logging:
   level:
     root: INFO
@@ -102,7 +92,6 @@ logging:
     org.springframework.security: DEBUG
     io.opentelemetry: INFO
 
-# OpenTelemetry Configuration
 otel:
   service:
     name: ${spring.application.name}
@@ -113,7 +102,6 @@ otel:
       protocol: ${OTEL_EXPORTER_OTLP_PROTOCOL:grpc}
 
 ---
-# Profile: Docker
 spring:
   config:
     activate:
@@ -126,9 +114,8 @@ spring:
       token: root
   
   datasource:
-    url: jdbc:postgresql://db:5432/ucochallenge
+    url: jdbc:postgresql://db:5432/ucochallenge?sslmode=disable
 
-# API Gateway en Docker (usando nombre del servicio)
 api:
   gateway:
     base-url: ${API_GATEWAY_URL:https://nginx-waf:8443/api-gateway}
@@ -142,7 +129,6 @@ parameters:
     url: ${PARAMETERS_SERVICE_URL:https://nginx-waf:8443/catalog/api/v1/parameters}
 
 ---
-# Profile: Production (Railway/Render)
 spring:
   config:
     activate:
@@ -159,7 +145,6 @@ spring:
         role: my-app
         app-role-path: approle
 
-# API Gateway en Producción
 api:
   gateway:
     base-url: ${API_GATEWAY_URL}

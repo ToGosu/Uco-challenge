@@ -1,0 +1,216 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, master ]
+  pull_request:
+    branches: [ main, develop, master ]
+
+env:
+  JAVA_VERSION: '21'
+  MAVEN_OPTS: '-Dmaven.repo.local=.m2/repository'
+
+jobs:
+  test:
+    name: Tests y Cobertura
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: ucochallenge
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+    
+    - name: Ejecutar tests
+      run: mvn clean test
+      env:
+        DATABASE_URL: jdbc:postgresql://localhost:5432/ucochallenge
+        DATABASE_USERNAME: postgres
+        DATABASE_PASSWORD: postgres
+        VAULT_ENABLED: false
+    
+    - name: Generar reporte de cobertura
+      run: mvn jacoco:report
+    
+    - name: Subir cobertura a Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        files: ./target/site/jacoco/jacoco.xml
+        fail_ci_if_error: false
+        token: ${{ secrets.CODECOV_TOKEN }}
+
+  static-analysis:
+    name: Análisis Estático
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+    
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+    
+    - name: Ejecutar Checkstyle
+      run: mvn checkstyle:check -Dmaven.checkstyle.skip=false
+      continue-on-error: true
+    
+    # SpotBugs está comentado temporalmente en pom.xml
+    # Descomentar en pom.xml para activar
+    # - name: Ejecutar SpotBugs
+    #   run: mvn spotbugs:check -Dspotbugs.skip=false
+    #   continue-on-error: true
+    
+    - name: Publicar reportes de análisis
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: static-analysis-reports
+        path: |
+          target/checkstyle-result.xml
+        retention-days: 7
+
+  security-scan:
+    name: Análisis de Seguridad
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+    
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+    
+    # OWASP Dependency Check está comentado temporalmente en pom.xml
+    # Descomentar en pom.xml para activar
+    # - name: Ejecutar OWASP Dependency Check
+    #   run: mvn org.owasp:dependency-check-maven:check -Dskip.owasp.check=false
+    #   continue-on-error: true
+    
+    - name: Ejecutar Snyk Security Scan
+      uses: snyk/actions/maven@master
+      continue-on-error: true
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=high --all-projects
+    
+    - name: Publicar reportes de seguridad
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          target/dependency-check-report.html
+        retention-days: 7
+
+  sonarqube:
+    name: Análisis SonarQube
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+    
+    # SonarQube está comentado temporalmente en pom.xml
+    # Descomentar en pom.xml y configurar secrets para activar
+    # - name: Ejecutar análisis SonarQube
+    #   run: mvn sonar:sonar -Dskip.sonar=false
+    #   env:
+    #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    #     SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+    #     SONAR_PROJECT_KEY: uco-challenge
+
+  build:
+    name: Build y Package
+    needs: [test, static-analysis]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+    
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+    
+    - name: Build con Maven
+      run: mvn clean package -DskipTests
+    
+    - name: Construir imagen Docker
+      run: docker build -t uco-challenge:${{ github.sha }} .
+    
+    - name: Publicar artefactos
+      uses: actions/upload-artifact@v4
+      with:
+        name: jar-artifact
+        path: target/*.jar
+        retention-days: 7
+
+  deploy:
+    name: Despliegue
+    needs: [build, security-scan]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+    
+    - name: Descargar artefactos
+      uses: actions/download-artifact@v4
+      with:
+        name: jar-artifact
+    
+    - name: Desplegar (configurar según tu entorno)
+      run: |
+        echo "Configurar despliegue según tu infraestructura"
+        echo "Opciones:"
+        echo "- Docker Hub"
+        echo "- AWS ECR"
+        echo "- Azure Container Registry"
+        echo "- Google Container Registry"
+        echo "- Kubernetes"
+        echo "- Docker Compose"
+

@@ -16,82 +16,69 @@ public class NotificationClient {
 
     private final RestClient restClient;
     private final String catalogServiceUrl;
+    private final String baseUrl;
     private final NotificationApiService notificationApiService;
 
     public NotificationClient(
             @Value("${notification.catalog.url}") String catalogServiceUrl,
+            @Value("${notification.base-url:https://localhost:8443/uco-challenge}") String baseUrl,
             NotificationApiService notificationApiService) {
         this.catalogServiceUrl = catalogServiceUrl;
+        this.baseUrl = baseUrl;
         this.notificationApiService = notificationApiService;
         this.restClient = RestClient.create();
     }
 
-    /**
-     * Envía email de bienvenida usando:
-     * 1. Template del catálogo (parameters-service) - OPCIONAL
-     * 2. NotificationAPI para envío real
-     */
     public void sendWelcomeEmail(String email, String nombre) {
         try {
-            // Variables para el template
             Map<String, String> variables = new HashMap<>();
             variables.put("nombre", nombre);
             variables.put("email", email);
 
-            // Enviar con NotificationAPI
-            // El template "welcome_email" debe estar configurado en NotificationAPI dashboard
             boolean sent = notificationApiService.sendEmail(
-                "welcome_email",           // ID del template en NotificationAPI
-                UUID.randomUUID().toString(), // User ID único
+                "welcome_email",
+                UUID.randomUUID().toString(),
                 email,
                 variables
             );
 
             if (sent) {
-                System.out.println("✅ Email de bienvenida enviado exitosamente a: " + email);
+                System.out.println("Email de bienvenida enviado exitosamente a: " + email);
             } else {
-                System.err.println("⚠️ No se pudo enviar el email a: " + email);
+                System.err.println("No se pudo enviar el email a: " + email);
             }
 
         } catch (Exception e) {
-            System.err.println("⚠️ Error en el flujo de envío de email: " + e.getMessage());
+            System.err.println("Error en el flujo de envío de email: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
-    /**
-     * Envía SMS de bienvenida usando NotificationAPI
-     */
     public void sendWelcomeSms(String phone, String nombre) {
         try {
             Map<String, String> variables = new HashMap<>();
             variables.put("nombre", nombre);
 
-            // Enviar con NotificationAPI
             boolean sent = notificationApiService.sendSms(
-                "welcome_sms",                // ID del template en NotificationAPI
-                UUID.randomUUID().toString(), // User ID único
+                "welcome_sms",
+                UUID.randomUUID().toString(),
                 phone,
                 variables
             );
 
             if (sent) {
-                System.out.println("✅ SMS de bienvenida enviado exitosamente a: " + phone);
+                System.out.println("SMS de bienvenida enviado exitosamente a: " + phone);
             } else {
-                System.err.println("⚠️ No se pudo enviar el SMS a: " + phone);
+                System.err.println("No se pudo enviar el SMS a: " + phone);
             }
 
         } catch (Exception e) {
-            System.err.println("⚠️ Error enviando SMS: " + e.getMessage());
+            System.err.println("Error enviando SMS: " + e.getMessage());
         }
     }
 
-    /**
-     * Versión avanzada: Usa template del catálogo + NotificationAPI
-     */
     public void sendWelcomeEmailWithCatalog(String email, String nombre) {
         try {
-            // 1️⃣ Obtener template del catálogo local
             Map<String, Object> templateRequest = Map.of(
                 "templateCode", "WELCOME_EMAIL",
                 "variables", Map.of(
@@ -107,7 +94,6 @@ public class NotificationClient {
                 .retrieve()
                 .body(Map.class);
 
-            // 2️⃣ Enviar usando NotificationAPI con el contenido procesado
             Map<String, String> variables = new HashMap<>();
             variables.put("nombre", nombre);
             variables.put("email", email);
@@ -124,9 +110,104 @@ public class NotificationClient {
             );
 
         } catch (Exception e) {
-            System.err.println("⚠️ Error: " + e.getMessage());
-            // Fallback: usar solo NotificationAPI
+            System.err.println("Error: " + e.getMessage());
             sendWelcomeEmail(email, nombre);
         }
+    }
+
+    public void sendEmailConfirmation(String email, String nombre, String token, String userId) {
+        try {
+            String confirmationUrl = baseUrl + "/api/v1/users/confirm-email?token=" + token;
+            
+            Map<String, String> variables = new HashMap<>();
+            variables.put("nombre", nombre);
+            variables.put("email", email);
+            variables.put("confirmationUrl", confirmationUrl);
+            variables.put("token", token);
+            variables.put("subject", "Confirma tu correo electrónico - UCO Challenge");
+            variables.put("html", buildEmailConfirmationHtml(nombre, confirmationUrl, token));
+
+            boolean sent = notificationApiService.sendEmail(
+                "email_confirmation",
+                userId,
+                email,
+                variables
+            );
+
+            if (sent) {
+                System.out.println("Email de confirmación enviado exitosamente a: " + email);
+            } else {
+                System.err.println("No se pudo enviar el email de confirmación a: " + email);
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error enviando email de confirmación: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public void sendMobileConfirmation(String phone, String nombre, String code) {
+        try {
+            Map<String, String> variables = new HashMap<>();
+            variables.put("nombre", nombre);
+            variables.put("token", code);
+            variables.put("code", code);
+            variables.put("message", "Hola " + nombre + ", tu código de confirmación de celular es: " + code + ". Válido por 24 horas.");
+
+            boolean sent = notificationApiService.sendSms(
+                "mobile_confirmation",
+                UUID.randomUUID().toString(),
+                phone,
+                variables
+            );
+
+            if (sent) {
+                System.out.println("SMS de confirmación enviado exitosamente a: " + phone);
+            } else {
+                System.err.println("No se pudo enviar el SMS de confirmación a: " + phone);
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error enviando SMS de confirmación: " + e.getMessage());
+        }
+    }
+
+    private String buildEmailConfirmationHtml(String nombre, String confirmationUrl, String token) {
+        return "<!DOCTYPE html>" +
+               "<html>" +
+               "<head>" +
+               "<meta charset='UTF-8'>" +
+               "<style>" +
+               "body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }" +
+               ".container { max-width: 600px; margin: 0 auto; padding: 20px; }" +
+               ".header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; }" +
+               ".content { padding: 20px; background-color: #f9f9f9; }" +
+               ".button { display: inline-block; padding: 12px 24px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }" +
+               ".footer { padding: 20px; text-align: center; color: #666; font-size: 12px; }" +
+               "</style>" +
+               "</head>" +
+               "<body>" +
+               "<div class='container'>" +
+               "<div class='header'>" +
+               "<h1>Bienvenido a UCO Challenge</h1>" +
+               "</div>" +
+               "<div class='content'>" +
+               "<h2>Hola " + nombre + "!</h2>" +
+               "<p>Gracias por registrarte en UCO Challenge.</p>" +
+               "<p>Para completar tu registro, por favor confirma tu correo electrónico haciendo clic en el siguiente botón:</p>" +
+               "<p style='text-align: center;'>" +
+               "<a href='" + confirmationUrl + "' class='button'>Confirmar correo electrónico</a>" +
+               "</p>" +
+               "<p>O copia y pega este enlace en tu navegador:</p>" +
+               "<p style='word-break: break-all; color: #0066cc;'>" + confirmationUrl + "</p>" +
+               "<p><strong>Nota:</strong> Este enlace expirará en 24 horas.</p>" +
+               "<p>Si no creaste esta cuenta, puedes ignorar este mensaje.</p>" +
+               "</div>" +
+               "<div class='footer'>" +
+               "<p>© 2024 UCO Challenge. Todos los derechos reservados.</p>" +
+               "</div>" +
+               "</div>" +
+               "</body>" +
+               "</html>";
     }
 }

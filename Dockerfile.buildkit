@@ -1,16 +1,36 @@
+# Dockerfile optimizado para BuildKit
+# Usar este archivo si BuildKit está habilitado para mejor rendimiento
+# Para usar: docker build -f Dockerfile.buildkit -t uco-challenge .
+
 FROM eclipse-temurin:21-jdk-alpine AS builder
 
 WORKDIR /app
 
+# Copiar archivos de Maven primero para mejor caché
 COPY pom.xml .
 COPY .mvn .mvn
 COPY mvnw .
 
 RUN chmod +x mvnw
 
+# Descargar dependencias usando cache de Maven (BuildKit)
+# El caché persiste entre builds, acelerando builds posteriores
+RUN --mount=type=cache,target=/root/.m2 \
+    ./mvnw dependency:resolve -B \
+    -Dmaven.checkstyle.skip=true \
+    -Dskip.owasp.check=true \
+    -Dskip.sonar=true
+
+# Copiar código fuente
 COPY src ./src
 
-RUN ./mvnw clean package -DskipTests
+# Compilar y empaquetar usando cache de Maven (BuildKit)
+RUN --mount=type=cache,target=/root/.m2 \
+    ./mvnw clean package -B \
+    -DskipTests \
+    -Dmaven.checkstyle.skip=true \
+    -Dskip.owasp.check=true \
+    -Dskip.sonar=true
 
 FROM eclipse-temurin:21-jre-alpine
 
@@ -43,3 +63,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
 EXPOSE 8080
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -javaagent:opentelemetry-javaagent.jar -jar app.jar"]
+

@@ -1,0 +1,47 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.idea
+.vscode
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings
+
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# Documentation
+*.md
+!README.md
+
+# Scripts (no necesarios en la imagen)
+scripts/
+*.ps1
+*.sh
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# CI/CD
+.github/
+
+# Vault config (no necesario en la imagen)
+vault-config/
+
+# Certificados (no necesarios en la imagen)
+certs/
+
+# Otros
+*.log
+.DS_Store
+Thumbs.db
+

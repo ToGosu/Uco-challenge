@@ -16,20 +16,9 @@ public class NotificationApiService {
     private final NotificationApi api;
 
     public NotificationApiService(NotificationApiProperties properties) {
-        // Cliente del SDK oficial usando NotificationApiProperties
         this.api = new NotificationApi(properties.getClientId(), properties.getClientSecret());
     }
 
-    /**
-     * Envía una notificación usando NotificationAPI
-     *
-     * @param notificationId ID de la notificación en NotificationAPI (ej: "welcome_email" o "welcome")
-     * @param userId         ID único del usuario
-     * @param email          Email del destinatario (puede ser null si solo es SMS)
-     * @param phone          Teléfono del destinatario (puede ser null si solo es email)
-     * @param mergeTags      Variables para template (ej: firstName, etc.)
-     * @return true si se envió correctamente
-     */
     public boolean sendNotification(
             String notificationId,
             String userId,
@@ -38,7 +27,6 @@ public class NotificationApiService {
             Map<String, String> mergeTags
     ) {
         try {
-            // 1. User
             User user = new User(userId);
             if (email != null) {
                 user.setEmail(email);
@@ -47,10 +35,8 @@ public class NotificationApiService {
                 user.setNumber(phone);
             }
 
-            // 2. NotificationRequest (type = notificationId en el dashboard)
             NotificationRequest request = new NotificationRequest(notificationId, user);
 
-            // Opcional: Email
             if (email != null) {
                 EmailOptions emailOptions = new EmailOptions()
                         .setSubject(mergeTags.getOrDefault("subject", "Notificación UCO Challenge"))
@@ -60,7 +46,6 @@ public class NotificationApiService {
                 request.setEmail(emailOptions);
             }
 
-            // Opcional: SMS
             if (phone != null) {
                 SmsOptions smsOptions = new SmsOptions()
                         .setMessage(mergeTags.getOrDefault("message",
@@ -68,15 +53,14 @@ public class NotificationApiService {
                 request.setSms(smsOptions);
             }
 
-            // 3. Enviar
-            System.out.println("📨 Enviando notificación a NotificationAPI...");
+            System.out.println("Enviando notificación a NotificationAPI...");
             String response = api.send(request);
-            System.out.println("✅ Notificación enviada. Response: " + response);
+            System.out.println("Notificación enviada. Response: " + response);
 
             return true;
 
         } catch (Exception e) {
-            System.err.println("❌ Error enviando notificación con NotificationAPI: " + e.getMessage());
+            System.err.println("Error enviando notificación con NotificationAPI: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
