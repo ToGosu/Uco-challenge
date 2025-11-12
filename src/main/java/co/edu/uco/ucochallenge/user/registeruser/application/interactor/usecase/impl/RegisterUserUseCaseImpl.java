@@ -3,6 +3,7 @@ package co.edu.uco.ucochallenge.user.registeruser.application.interactor.usecase
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import co.edu.uco.ucochallenge.application.Void;
@@ -18,6 +19,10 @@ import co.edu.uco.ucochallenge.secondary.ports.repository.IdTypeRepository;
 import co.edu.uco.ucochallenge.secondary.ports.repository.UserRepository;
 import co.edu.uco.ucochallenge.user.registeruser.application.interactor.usecase.RegisterUserUseCase;
 import co.edu.uco.ucochallenge.user.registeruser.application.usecase.domain.RegisterUserDomain;
+import io.micrometer.core.annotation.Timed;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 
 @Service
 public class RegisterUserUseCaseImpl implements RegisterUserUseCase {
@@ -26,6 +31,12 @@ public class RegisterUserUseCaseImpl implements RegisterUserUseCase {
     private final IdTypeRepository idTypeRepository;
     private final CityRepository cityRepository;
     private final NotificationClient notificationClient;
+    
+    // Métricas opcionales (se inyectan solo si están disponibles)
+    private MeterRegistry meterRegistry;
+    private Counter userRegistrationCounter;
+    private Counter userRegistrationErrorCounter;
+    private Timer userRegistrationTimer;
 
     public RegisterUserUseCaseImpl(
             UserRepository userRepository,
@@ -37,9 +48,31 @@ public class RegisterUserUseCaseImpl implements RegisterUserUseCase {
         this.cityRepository = cityRepository;
         this.notificationClient = notificationClient;
     }
+    
+    // Inyección opcional de MeterRegistry (solo si está disponible)
+    @Autowired(required = false)
+    public void setMeterRegistry(MeterRegistry meterRegistry) {
+        if (meterRegistry != null) {
+            this.meterRegistry = meterRegistry;
+            this.userRegistrationCounter = Counter.builder("user.registrations.total")
+                .description("Total de usuarios registrados")
+                .tag("operation", "register")
+                .register(meterRegistry);
+            this.userRegistrationErrorCounter = Counter.builder("user.registrations.errors")
+                .description("Total de errores en registro de usuarios")
+                .tag("operation", "register")
+                .register(meterRegistry);
+            this.userRegistrationTimer = Timer.builder("user.registration.duration")
+                .description("Tiempo de ejecución del registro de usuario")
+                .register(meterRegistry);
+        }
+    }
 
     @Override
+    @Timed(value = "user.registration", description = "Tiempo de registro de usuario")
     public Void execute(final RegisterUserDomain domain) {
+        Timer.Sample sample = userRegistrationTimer != null ? Timer.start() : null;
+        try {
 
         validateUserDoesNotExist(domain);
         validateRequiredFields(domain);
@@ -57,8 +90,29 @@ public class RegisterUserUseCaseImpl implements RegisterUserUseCase {
         userRepository.save(userEntity);
 
         sendNotifications(domain, userEntity);
-
+        
+        // Métrica de éxito (solo si está disponible)
+        if (userRegistrationCounter != null) {
+            userRegistrationCounter.increment();
+        }
+        
         return Void.returnVoid();
+        } catch (Exception e) {
+            // Métrica de error (solo si está disponible)
+            if (meterRegistry != null) {
+                meterRegistry.counter("user.registrations.errors", 
+                    "operation", "register",
+                    "error_type", e.getClass().getSimpleName())
+                    .increment();
+            } else if (userRegistrationErrorCounter != null) {
+                userRegistrationErrorCounter.increment();
+            }
+            throw e;
+        } finally {
+            if (sample != null && userRegistrationTimer != null) {
+                sample.stop(userRegistrationTimer);
+            }
+        }
     }
 
     private void validateUserDoesNotExist(RegisterUserDomain domain) {
@@ -137,12 +191,12 @@ public class RegisterUserUseCaseImpl implements RegisterUserUseCase {
         userEntity.setEmailConfirmed(false);
         userEntity.setMobileNumberConfirmed(false);
 
-        // Generar tokens de confirmación
-        String emailToken = UUID.randomUUID().toString();
-        String mobileToken = generateMobileConfirmationCode();
+        // Generar códigos de confirmación (ambos de 6 dígitos)
+        String emailCode = generateMobileConfirmationCode();
+        String mobileCode = generateMobileConfirmationCode();
         
-        userEntity.setEmailConfirmationToken(emailToken);
-        userEntity.setMobileConfirmationToken(mobileToken);
+        userEntity.setEmailConfirmationToken(emailCode);
+        userEntity.setMobileConfirmationToken(mobileCode);
         userEntity.setEmailConfirmationTokenExpiry(LocalDateTime.now().plusDays(1));
         userEntity.setMobileConfirmationTokenExpiry(LocalDateTime.now().plusDays(1));
 
@@ -150,7 +204,7 @@ public class RegisterUserUseCaseImpl implements RegisterUserUseCase {
     }
 
     private String generateMobileConfirmationCode() {
-        // Generar código de 6 dígitos para SMS
+        // Generar código de 6 dígitos para confirmación (SMS o Email)
         return String.format("%06d", (int)(Math.random() * 1000000));
     }
 
@@ -159,7 +213,7 @@ public class RegisterUserUseCaseImpl implements RegisterUserUseCase {
             // Enviar email de bienvenida
             notificationClient.sendWelcomeEmail(domain.getEmail(), domain.getFirstName());
             
-            // Enviar email de confirmación con token
+            // Enviar email de confirmación con código
             notificationClient.sendEmailConfirmation(
                 domain.getEmail(), 
                 domain.getFirstName(), 

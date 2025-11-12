@@ -113,6 +113,12 @@
         <scope>test</scope>
     </dependency>
     
+    <!-- AspectJ para soportar anotaciones @Timed (opcional - no invasivo) -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-aop</artifactId>
+    </dependency>
+    
     <!-- OpenTelemetry (opcional - para instrumentación manual si se requiere) -->
     <dependency>
         <groupId>io.opentelemetry</groupId>

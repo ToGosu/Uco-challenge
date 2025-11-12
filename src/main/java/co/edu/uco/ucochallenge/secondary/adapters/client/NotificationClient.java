@@ -115,17 +115,15 @@ public class NotificationClient {
         }
     }
 
-    public void sendEmailConfirmation(String email, String nombre, String token, String userId) {
+    public void sendEmailConfirmation(String email, String nombre, String code, String userId) {
         try {
-            String confirmationUrl = baseUrl + "/api/v1/users/confirm-email?token=" + token;
-            
             Map<String, String> variables = new HashMap<>();
             variables.put("nombre", nombre);
             variables.put("email", email);
-            variables.put("confirmationUrl", confirmationUrl);
-            variables.put("token", token);
+            variables.put("code", code);
+            variables.put("token", code);
             variables.put("subject", "Confirma tu correo electrónico - UCO Challenge");
-            variables.put("html", buildEmailConfirmationHtml(nombre, confirmationUrl, token));
+            variables.put("html", buildEmailConfirmationHtml(nombre, code));
 
             boolean sent = notificationApiService.sendEmail(
                 "email_confirmation",
@@ -172,7 +170,7 @@ public class NotificationClient {
         }
     }
 
-    private String buildEmailConfirmationHtml(String nombre, String confirmationUrl, String token) {
+    private String buildEmailConfirmationHtml(String nombre, String code) {
         return "<!DOCTYPE html>" +
                "<html>" +
                "<head>" +
@@ -182,7 +180,7 @@ public class NotificationClient {
                ".container { max-width: 600px; margin: 0 auto; padding: 20px; }" +
                ".header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; }" +
                ".content { padding: 20px; background-color: #f9f9f9; }" +
-               ".button { display: inline-block; padding: 12px 24px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }" +
+               ".code-box { background-color: #ffffff; border: 2px solid #4CAF50; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #4CAF50; }" +
                ".footer { padding: 20px; text-align: center; color: #666; font-size: 12px; }" +
                "</style>" +
                "</head>" +
@@ -194,13 +192,9 @@ public class NotificationClient {
                "<div class='content'>" +
                "<h2>Hola " + nombre + "!</h2>" +
                "<p>Gracias por registrarte en UCO Challenge.</p>" +
-               "<p>Para completar tu registro, por favor confirma tu correo electrónico haciendo clic en el siguiente botón:</p>" +
-               "<p style='text-align: center;'>" +
-               "<a href='" + confirmationUrl + "' class='button'>Confirmar correo electrónico</a>" +
-               "</p>" +
-               "<p>O copia y pega este enlace en tu navegador:</p>" +
-               "<p style='word-break: break-all; color: #0066cc;'>" + confirmationUrl + "</p>" +
-               "<p><strong>Nota:</strong> Este enlace expirará en 24 horas.</p>" +
+               "<p>Para completar tu registro, por favor ingresa el siguiente código de confirmación en la aplicación:</p>" +
+               "<div class='code-box'>" + code + "</div>" +
+               "<p><strong>Nota:</strong> Este código expirará en 24 horas.</p>" +
                "<p>Si no creaste esta cuenta, puedes ignorar este mensaje.</p>" +
                "</div>" +
                "<div class='footer'>" +
